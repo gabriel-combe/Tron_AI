@@ -1,5 +1,5 @@
 import os
-from tron_agent import TronPlayer, MAX_GAME
+from tron_agent_mem import TronPlayer, MAX_GAME
 from tron_game import TronGame
 from utils import plot
 import numpy as np

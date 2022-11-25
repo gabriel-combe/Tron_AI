@@ -1,0 +1,112 @@
+import random
+import numpy as np
+import torch
+import torch.nn.functional as F
+from utils import *
+from collections import deque
+from model import DQN, DQTrainer
+
+MAX_GAME = 150
+MAX_MEMORY = 100_000
+BATCH_SIZE = 1000
+LR = 0.001
+
+class TronPlayer:
+    def __init__(
+        self, 
+        num :int, 
+        color :tuple, 
+        radius :int = 5, 
+        epsilon :float = 0.8, 
+        gamma :float = 0.9
+        ) -> None:
+
+        self.num = num
+        self.color = color
+        self.radius = radius
+        self.pos = np.array([0,0])
+        self.direction = Direction.UP
+
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+        self.nb_games = 0
+
+        self.epsilon = epsilon
+        self.gamma = gamma
+        self.memory = deque(maxlen=MAX_MEMORY)
+        self.model = DQN(len(Action), 1, 32).to(self.device)
+        self.trainer = DQTrainer(self.model, lr=LR, gamma=self.gamma, device=self.device)
+
+        self.reset()
+    
+    def reset(self) -> None:
+        self.dead = False
+        self.lifetime = 0
+        if self.epsilon <= 0.05:
+            self.epsilon = 0
+        self.epsilon *= (1 - 1/(0.2*MAX_GAME))
+    
+    def load_from_save(self, state_dict_path='./model/model.pth') -> None:
+        self.nb_games = 0
+        self.model.load_state_dict(torch.load(state_dict_path))
+        self.trainer = DQTrainer(self.model, lr=LR, gamma=self.gamma, device=self.device)
+
+    def init_pos(self, pos) -> None:
+        self.pos = pos
+    
+    def set_dir(self, dir) -> None:
+        self.direction = dir
+    
+    # Update Direction depending on the choosen action (Maybe better way to do it)
+    def update_dir(self, action) -> None:
+        idx = DIR_LIST_CW.index(self.direction)
+
+        if action == Action.RIGHT:
+            self.direction = DIR_LIST_CW[(idx+1)%4]
+        elif action == Action.LEFT:
+            self.direction = DIR_LIST_CW[(idx-1)%4]
+    
+    def move(self) -> None:
+        self.pos += np.array(self.direction.value)
+    
+    def is_dead(self) -> bool:
+        return self.dead
+    
+    def get_color(self) -> tuple:
+        return self.color
+    
+    def get_pos(self) -> np.ndarray:
+        return self.pos
+    
+    def get_vision(self, grid) -> torch.Tensor:
+        padded_grid = grid.copy()
+        padded_grid[self.pos[0], self.pos[1]] = 2
+        padded_grid = np.pad(padded_grid, pad_width=self.radius, constant_values=1)
+        vision = padded_grid[self.pos[0]:self.pos[0]+2*self.radius+1, self.pos[1]:self.pos[1]+2*self.radius+1]
+        # return torch.tensor(np.rot90(vision, DIR_LIST_CW.index(self.direction)).copy(), dtype=torch.float)/2
+        return torch.tensor(np.rot90(vision, DIR_LIST_CW.index(self.direction)).copy(), dtype=torch.float)
+    
+    def save2mem(self, cur_state, reward, action, next_state) -> None:
+        self.memory.append((cur_state, reward, torch.tensor(action, dtype=torch.long), next_state, self.dead))
+
+    def train_longmem(self) -> None:
+        if len(self.memory) > BATCH_SIZE:
+            mini_sample = random.sample(self.memory, BATCH_SIZE)
+        else:
+            mini_sample = self.memory
+        
+        cur_state, reward, action, next_state, dead = zip(*mini_sample)
+        self.trainer.train_step(torch.stack(cur_state), torch.tensor(reward, dtype=torch.float), torch.stack(action), torch.stack(next_state), torch.tensor(dead))
+
+    def train_shortmem(self, cur_state, reward, action, next_state) -> None:
+        self.trainer.train_step(cur_state, torch.tensor(reward, dtype=torch.float), torch.tensor(action, dtype=torch.long), next_state, self.dead)
+
+    def get_action(self, state) -> Action:
+        # random  moves (exploration/exploitation)
+        if random.random() < self.epsilon:
+            action = random.choice(ACTION_LIST)
+        else:
+            state0 = state.clone().detach().unsqueeze(dim=0).unsqueeze(dim=0)
+            pred = self.model(state0.to(self.device))
+            action = ACTION_LIST[torch.argmax(pred).item()]
+        return action

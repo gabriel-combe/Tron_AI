@@ -4,54 +4,110 @@ import torch.nn as nn
 from utils import Action
 
 class DQN(nn.Module):
-    def __init__(self, n_action, channel_dim, dropout_rate=0.1, layernorm_eps=1e-6):
+    def __init__(
+        self, 
+        n_action :int,
+        channel_dim :int, 
+        channel_dim_out :int, 
+        dropout_rate :float = 0.1, 
+        layernorm_eps :float = 1e-6
+        ) -> None:
         super(DQN, self).__init__()
+
         self.n_action = n_action
         self.channel_dim = channel_dim
+        self.channel_dim_out = channel_dim_out
         
-        self.conv1 = nn.Conv2d(1, self.channel_dim//2, kernel_size=3, padding='same')
-        self.conv2 = nn.Conv2d(self.channel_dim//2, self.channel_dim//2, kernel_size=3, padding='same')
+        self.convstart1 = nn.Conv2d(self.channel_dim, self.channel_dim_out//2, kernel_size=3)
+        self.convstart2 = nn.Conv2d(self.channel_dim_out//2, self.channel_dim_out, kernel_size=3, padding='same')
 
-        self.conv3 = nn.Conv2d(self.channel_dim//2, self.channel_dim, kernel_size=3, padding='same')
-        self.conv4 = nn.Conv2d(self.channel_dim, self.channel_dim, kernel_size=3, padding='same')
+        self.conv1 = nn.Conv2d(self.channel_dim_out, self.channel_dim_out, kernel_size=3, padding='same')
+        self.conv2 = nn.Conv2d(self.channel_dim_out, self.channel_dim_out, kernel_size=3, padding='same')
 
-        self.lazylinear = nn.LazyLinear(self.channel_dim)
-        self.linear1 = nn.Linear(self.channel_dim, self.n_action)
-        self.linear2 = nn.Linear(self.channel_dim, self.n_action)
+        self.conv3 = nn.Conv2d(self.channel_dim_out, self.channel_dim_out, kernel_size=3, padding='same')
+        self.conv4 = nn.Conv2d(self.channel_dim_out, self.channel_dim_out, kernel_size=3, padding='same')
 
-        self.avgpool = nn.AvgPool2d(2, 2)
+        self.conv5 = nn.Conv2d(self.channel_dim_out, self.channel_dim_out, kernel_size=3, padding='same')
+        self.conv6 = nn.Conv2d(self.channel_dim_out, self.channel_dim_out, kernel_size=3, padding='same')
+
+        self.lazyfc = nn.LazyLinear(self.channel_dim_out)
+        self.fc = nn.Linear(self.channel_dim_out, self.n_action)
+
+        self.maxpool = nn.MaxPool2d(2, 2)
+        self.avgpool = nn.AdaptiveAvgPool2d((2, 2))
 
         self.relu = nn.LeakyReLU(negative_slope=0.01)
 
-        self.batchnorm1 = nn.BatchNorm2d(self.channel_dim//2, eps=layernorm_eps)
-        self.batchnorm2 = nn.BatchNorm2d(self.channel_dim, eps=layernorm_eps)
+        self.bnstart1 = nn.BatchNorm2d(self.channel_dim_out//2, eps=layernorm_eps)
+        self.bnstart2 = nn.BatchNorm2d(self.channel_dim_out, eps=layernorm_eps)
+        self.bn1 = nn.BatchNorm2d(self.channel_dim_out, eps=layernorm_eps)
+        self.bn2 = nn.BatchNorm2d(self.channel_dim_out, eps=layernorm_eps)
+        self.bn3 = nn.BatchNorm2d(self.channel_dim_out, eps=layernorm_eps)
+        self.bn4 = nn.BatchNorm2d(self.channel_dim_out, eps=layernorm_eps)
+        self.bn5 = nn.BatchNorm2d(self.channel_dim_out, eps=layernorm_eps)
+        self.bn6 = nn.BatchNorm2d(self.channel_dim_out, eps=layernorm_eps)
 
         self.flatten = nn.Flatten()
 
         self.drop = nn.Dropout(p=dropout_rate)
     
-    def forward(self, vision):
-        vision = self.relu(self.batchnorm1(self.conv1(vision)))
-        vision = self.relu(self.batchnorm1(self.conv2(vision)))
-        vision = self.avgpool(vision)
-
-        vision = self.drop(vision)
-
-        vision = self.relu(self.batchnorm2(self.conv3(vision)))
-        vision = self.relu(self.batchnorm2(self.conv4(vision)))
-        vision = self.avgpool(vision)
-
-        vision = self.drop(vision)
-
-        vision = self.flatten(vision)
-        vision = self.relu(self.lazylinear(vision))
+    def forward(self, vision :torch.Tensor) -> torch.Tensor:
         
-        vision = self.drop(vision)
-        vision = self.linear1(vision)
+        # First setup Conv
+        x = self.convstart1(vision)
+        x = self.bnstart1(x)
+        x = self.relu(x)
+        x = self.convstart2(x)
+        x = self.bnstart2(x)
+        x = self.relu(x)
+        x = self.maxpool(x)
 
-        return vision
+        # Simple Resnet part
+        
+        # Block 1
+        vision1 = x
+        x = self.conv1(x)
+        x = self.bn1(x)
+        x = self.relu(x)
 
-    def save(self, file_name='model.pth'):
+        x = self.conv2(x)
+        x = self.bn2(x)
+        x += vision1
+        x = self.relu(x)
+
+        # Block 2
+        vision2 = x
+        x = self.conv3(x)
+        x = self.bn3(x)
+        x = self.relu(x)
+
+        x = self.conv4(x)
+        x = self.bn4(x)
+        x += vision2
+        x = self.relu(x)
+
+        # Block 3
+        vision3 = x
+        x = self.conv5(x)
+        x = self.bn5(x)
+        x = self.relu(x)
+
+        x = self.conv6(x)
+        x = self.bn6(x)
+        x += vision3
+        x = self.relu(x)
+
+        # Feed Forward part
+        x = self.avgpool(x)
+
+        x = self.flatten(x)
+        x = self.relu(self.lazyfc(x))
+        
+        x = self.fc(x)
+
+        return x
+
+    def save(self, file_name :str = 'model.pth') -> None:
         model_folder_path = './model'
         if not os.path.exists(model_folder_path):
             os.makedirs(model_folder_path)
@@ -60,7 +116,13 @@ class DQN(nn.Module):
         torch.save(self.state_dict(), file_name)
 
 class DQTrainer:
-    def __init__(self, model, lr, gamma, device):
+    def __init__(
+        self, model :nn.Module, 
+        lr :float, 
+        gamma :float, 
+        device :torch.device
+        ) -> None:
+
         self.lr = lr
         self.gamma = gamma
         self.model = model

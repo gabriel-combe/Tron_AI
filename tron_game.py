@@ -6,7 +6,7 @@ pygame.init()
 
 GRID_SIZE = 40
 BLOCK_SIZE = 20
-SPEED = 100
+SPEED = 0
 
 class TronGame:
     def __init__(self, players, grid_size=GRID_SIZE, block_size=BLOCK_SIZE):
