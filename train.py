@@ -29,8 +29,18 @@ def train():
                 # get move
                 final_action = agent.get_action(old_state)
 
-                # perform action
+                # Update direction
                 agent.update_dir(final_action)
+            
+            # Then evaluate them
+            for agent in agents:
+                # If agent is dead skip it
+                if agent.dead: continue
+                
+                # get old state
+                old_state = agent.get_vision(game.grid_state_obstacle)
+
+                # perform action
                 reward = game.play_step(agent)
 
                 # get new state

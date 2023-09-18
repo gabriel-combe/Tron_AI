@@ -17,7 +17,7 @@ class TronPlayer:
         self.color = color
         self.radius = radius
         self.pos = np.array([0,0])
-        self.direction = Direction.UP
+        self.direction = random.choice(DIR_LIST_CW)
 
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -26,7 +26,7 @@ class TronPlayer:
         self.epsilon = epsilon
         self.gamma = gamma
         self.memory = deque(maxlen=MAX_MEMORY)
-        self.model = DQN(len(Action), 32).to(self.device)
+        self.model = DQN(len(Action), 16).to(self.device)
         self.trainer = DQTrainer(self.model, lr=LR, gamma=self.gamma, device=self.device)
 
         self.reset()
@@ -72,11 +72,13 @@ class TronPlayer:
     
     def get_vision(self, grid):
         padded_grid = grid.copy()
-        padded_grid[self.pos[0], self.pos[1]] = 2
-        padded_grid = np.pad(padded_grid, pad_width=self.radius, constant_values=1)
-        vision = padded_grid[self.pos[0]:self.pos[0]+2*self.radius+1, self.pos[1]:self.pos[1]+2*self.radius+1]
+        padded_grid[self.pos[0], self.pos[1]] = 10 * (DIR_LIST_CW.index(self.direction) + 2)
+        # padded_grid = np.pad(padded_grid, pad_width=self.radius, constant_values=1)
+        # vision = padded_grid[self.pos[0]:self.pos[0]+2*self.radius+1, self.pos[1]:self.pos[1]+2*self.radius+1]
         # return torch.tensor(np.rot90(vision, DIR_LIST_CW.index(self.direction)).copy(), dtype=torch.float)/2
-        return torch.tensor(np.rot90(vision, DIR_LIST_CW.index(self.direction)).copy(), dtype=torch.float)
+        # return torch.tensor(np.rot90(vision, DIR_LIST_CW.index(self.direction)).copy(), dtype=torch.float)
+        # return torch.tensor(vision.copy(), dtype=torch.float)
+        return torch.tensor(padded_grid.copy(), dtype=torch.float)
     
     def save2mem(self, cur_state, reward, action, next_state):
         self.memory.append((cur_state, reward, torch.tensor(action, dtype=torch.long), next_state, self.dead))

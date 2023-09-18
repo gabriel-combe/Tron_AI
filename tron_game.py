@@ -55,8 +55,11 @@ class TronGame:
         player.lifetime += 1
 
         # Reward
+        reward = player.lifetime
+        # reward = np.exp(player.lifetime)
+        # reward = np.log(max(player.lifetime/4, 1))
         # reward = (len(self.players) - self.num_player + 1) * np.log(max(player.lifetime/4, 1))
-        reward = len(self.players) - self.num_player
+        # reward = len(self.players) - self.num_player
 
         # Quit the game
         for event in pygame.event.get():
@@ -70,7 +73,8 @@ class TronGame:
         # Check collision
         if self.is_colliding(player):
             # reward = -np.exp(1/(reward+1))*(self.num_player+1)**2
-            reward = -player.lifetime
+            # reward = -player.lifetime
+            reward = -((((self.grid_size - 2)**2)/len(self.players)) - player.lifetime)
 
         # Update the grid
         if not player.dead:
