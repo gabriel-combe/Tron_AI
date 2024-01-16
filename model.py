@@ -130,6 +130,7 @@ class DQTrainer:
         self.optimizer = torch.optim.Adam(self.model.parameters(), lr=self.lr)
         self.criterion = nn.MSELoss()
     
+    # Traingin step using the DQN scheme
     def train_step(self, cur_state, reward, action, next_state, agent_dead):
         cur_state = cur_state.clone().detach()
         next_state = next_state.clone().detach()
@@ -143,8 +144,8 @@ class DQTrainer:
             reward = torch.unsqueeze(reward, dim=0)
             agent_dead = (agent_dead, )
         
-        cur_state = torch.unsqueeze(cur_state, dim=1)
-        next_state = torch.unsqueeze(next_state, dim=1)
+        # cur_state = torch.unsqueeze(cur_state, dim=1)
+        # next_state = torch.unsqueeze(next_state, dim=1)
         
         # compute predicted Q value with 
         pred = self.model(cur_state.to(self.device))

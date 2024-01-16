@@ -1,3 +1,5 @@
+# Legacy code used to check if the gameplay mechanics worked
+
 import pygame
 import random
 import numpy as np

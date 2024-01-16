@@ -2,26 +2,32 @@ import matplotlib.pyplot as plt
 from IPython import display
 from enum import Enum
 
+# Directions an agent can take
 class Direction(Enum):
     UP = [-1,0]
     RIGHT = [0,1]
     DOWN = [1,0]
     LEFT = [0,-1]
 
+# Actions an agent can take (no BACKWARD as it is a death sentence)
 class Action(Enum):
     FORWARD = [1, 0, 0]
     RIGHT = [0, 1, 0]
     LEFT = [0, 0, 1]
 
+# Clockwise list of all directions
 DIR_LIST_CW = [Direction.UP, Direction.RIGHT, Direction.DOWN, Direction.LEFT]
+
+# List of all actions
 ACTION_LIST = [Action.FORWARD, Action.RIGHT, Action.LEFT]
 
+# Some useful colours
 WHITE = (255,255,255)
 GRAY = (50,50,50)
 BLACK = (0,0,0)
 
+# Plot learning graph, number of game and average score
 plt.ion()
-
 def plot(scores, mean_scores):
     display.clear_output(wait=True)
     display.display(plt.gcf())

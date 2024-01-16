@@ -1,0 +1,14 @@
+# Usage: pip install -r requirements.txt
+
+# Base ----------------------------------------
+matplotlib>=3.2.2
+numpy>=1.18.5,<1.24.0
+opencv-python>=4.1.1
+torch>=1.7.0,!=1.12.0
+torchvision>=0.8.1,!=0.13.0
+
+# Logging -------------------------------------
+# wandb
+
+# Extras --------------------------------------
+ipython  # interactive notebook

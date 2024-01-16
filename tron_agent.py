@@ -31,6 +31,7 @@ class TronPlayer:
 
         self.reset()
     
+    # Reset the board and modify the exploration/exploitation ratio
     def reset(self):
         self.dead = False
         self.lifetime = 0
@@ -38,6 +39,7 @@ class TronPlayer:
             self.epsilon = 0
         self.epsilon *= (1 - 1/(0.2*MAX_GAME))
     
+    # Load a model checkpoint from a .pth file
     def load_from_save(self, state_dict_path='./model/model.pth'):
         self.nb_games = 0
         self.model.load_state_dict(torch.load(state_dict_path))
@@ -70,6 +72,7 @@ class TronPlayer:
     def get_pos(self):
         return self.pos
     
+    # Retrieve a patch of the play area for training
     def get_vision(self, grid):
         padded_grid = grid.copy()
         padded_grid[self.pos[0], self.pos[1]] = 10 * (DIR_LIST_CW.index(self.direction) + 2)
@@ -80,9 +83,12 @@ class TronPlayer:
         # return torch.tensor(vision.copy(), dtype=torch.float)
         return torch.tensor(padded_grid.copy(), dtype=torch.float)
     
+    # Save a game in the memory (current state, reward given, action taken, resulting state, and if the agent is dead)
     def save2mem(self, cur_state, reward, action, next_state):
         self.memory.append((cur_state, reward, torch.tensor(action, dtype=torch.long), next_state, self.dead))
 
+    # Long term memory training by taking BATCH_SIZE games from the memory
+    # and training the network on them.
     def train_longmem(self):
         if len(self.memory) > BATCH_SIZE:
             mini_sample = random.sample(self.memory, BATCH_SIZE)
@@ -92,9 +98,11 @@ class TronPlayer:
         cur_state, reward, action, next_state, dead = zip(*mini_sample)
         self.trainer.train_step(torch.stack(cur_state), torch.tensor(reward, dtype=torch.float), torch.stack(action), torch.stack(next_state), torch.tensor(dead))
 
+    # Short term momory training by taking the last game and training the network on it
     def train_shortmem(self, cur_state, reward, action, next_state):
         self.trainer.train_step(cur_state, torch.tensor(reward, dtype=torch.float), torch.tensor(action, dtype=torch.long), next_state, self.dead)
 
+    # Get an action from the network or by randomness
     def get_action(self, state):
         # random  moves (exploration/exploitation)
         if random.random() < self.epsilon:

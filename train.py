@@ -1,6 +1,6 @@
 import os
 from tron_agent_mem import TronPlayer, MAX_GAME
-from tron_game import TronGame
+from tron_game import TronGame, GRID_SIZE
 from utils import plot
 import numpy as np
 
@@ -9,7 +9,7 @@ NUM_AGENT = 4
 def train():
     total_score = 0
     records = [0 for _ in range(2)]
-    agents = create_agent(NUM_AGENT)
+    agents = create_agent(NUM_AGENT, GRID_SIZE)
     game = TronGame(agents)
 
     plot_scores = [ [] for _ in range(len(agents))]
@@ -36,9 +36,6 @@ def train():
             for agent in agents:
                 # If agent is dead skip it
                 if agent.dead: continue
-                
-                # get old state
-                old_state = agent.get_vision(game.grid_state_obstacle)
 
                 # perform action
                 reward = game.play_step(agent)
@@ -46,11 +43,11 @@ def train():
                 # get new state
                 new_state = agent.get_vision(game.grid_state_obstacle)
 
-                # train short memory
-                agent.train_shortmem(old_state, reward, final_action.value, new_state)
-
                 # Save to Memory
-                agent.save2mem(old_state, reward, final_action.value, new_state)
+                agent.save2mem(reward, final_action.value, new_state)
+                
+                # train short memory
+                agent.train_shortmem(reward, final_action.value, new_state)
 
             # Train all agent on their past experience
             if game.game_over:
@@ -87,8 +84,8 @@ def train():
             agent.epsilon = 0.2
             agent.load_from_save(f'./model/model_{agent.num%(NUM_AGENT//2)}.pth')
 
-def create_agent(num_agent):
-    return [TronPlayer(i, tuple(np.random.random(size=3) * 256)) for i in range(num_agent)]
+def create_agent(num_agent, grid_size):
+    return [TronPlayer(i, tuple(np.random.random(size=3) * 256), grid_size) for i in range(num_agent)]
 
 if __name__=='__main__':
     train()
